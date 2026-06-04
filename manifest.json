@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Job Age Checker",
-  "version": "1.0",
+  "version": "1.3",
   "description": "Checks the job posted date and age for recruiting platforms.",
   "permissions": [
     "contextMenus",
@@ -20,9 +20,15 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "css": ["styles.css"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
       "run_at": "document_end"
     }
   ]

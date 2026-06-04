@@ -59,8 +59,24 @@ async function processJobAge(isManualClick) {
   let recognized = false;
 
   try {
+    // 0. Universal Fallback: Google Jobs Schema (ld+json)
+    const ldJsonScripts = document.querySelectorAll('script[type="application/ld+json"]');
+    for (let script of ldJsonScripts) {
+      try {
+        const data = JSON.parse(script.textContent);
+        // Sometimes it's an array of objects
+        const items = Array.isArray(data) ? data : [data];
+        for (let item of items) {
+          if (item['@type'] === 'JobPosting' && item.datePosted) {
+            jobDate = item.datePosted;
+            recognized = true;
+          }
+        }
+      } catch(e) {}
+    }
+
     // 1. GREENHOUSE
-    if (hostname.includes("greenhouse.io") || document.querySelector('meta[property="og:url"]')?.content.includes("greenhouse.io")) {
+    if (!jobDate && (hostname.includes("greenhouse.io") || document.querySelector('meta[property="og:url"]')?.content.includes("greenhouse.io"))) {
       recognized = true;
       let parts = pathname.split('/').filter(Boolean);
       
@@ -85,7 +101,7 @@ async function processJobAge(isManualClick) {
       }
     } 
     // 2. LEVER
-    else if (hostname.includes("lever.co")) {
+    else if (!jobDate && hostname.includes("lever.co")) {
       recognized = true;
       let parts = pathname.split('/').filter(Boolean);
       if (parts.length >= 2) {
@@ -97,15 +113,17 @@ async function processJobAge(isManualClick) {
       }
     } 
     // 3. ASHBY
-    else {
-      // Ashby often uses custom domains, but the page source contains __NEXT_DATA__
+    else if (!jobDate && (hostname.includes("ashbyhq.com") || document.getElementById('__NEXT_DATA__'))) {
       const nextDataScript = document.getElementById('__NEXT_DATA__');
+      
+      // Robust Regex search for the date in the NEXT_DATA JSON string
       if (nextDataScript) {
-        const nextData = JSON.parse(nextDataScript.textContent);
-        const posting = nextData?.props?.pageProps?.jobBoard?.jobPosting;
-        if (posting) {
-          recognized = true;
-          jobDate = posting.publishedAt || posting.createdAt;
+        recognized = true;
+        const text = nextDataScript.textContent;
+        // Search for "publishedAt":"2023-..." or "createdAt":"..."
+        const match = text.match(/"(?:publishedAt|createdAt)":"([^"]+)"/);
+        if (match && match[1]) {
+          jobDate = match[1];
         }
       }
     }
@@ -114,7 +132,7 @@ async function processJobAge(isManualClick) {
       const timeStr = parseTimeDifference(jobDate);
       showBadge(`Posted ${timeStr} ago`);
     } else if (recognized) {
-      showBadge("Could not extract job ID from this page.");
+      showBadge("Could not extract job ID or date from this page.");
     } else if (isManualClick) {
       // Show warning only if user manually clicked, avoiding spam on auto-inject
       showBadge("Not a recognized job page.");
